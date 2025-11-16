@@ -1,41 +1,34 @@
-// src/pages/Login.jsx
-
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/Authcontext';
-import api from '../services/api';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/Authcontext";
+import api from "../services/api";
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
-  const [mfaType, setMfaType] = useState(''); // 'totp' or 'webauthn'
+  const [mfaType, setMfaType] = useState("");
+
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  // handle input changes
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    if (error) setError('');
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (error) setError("");
   };
 
+  // simple validation
   const validateForm = () => {
-    if (!formData.email || !formData.password) {
-      return 'Email and password are required.';
-    }
+    if (!formData.email || !formData.password)
+      return "Email and password are required.";
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      return 'Invalid email format.';
-    }
+    if (!emailRegex.test(formData.email)) return "Invalid email format.";
     return null;
   };
 
+  // login submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationError = validateForm();
@@ -45,204 +38,245 @@ const Login = () => {
     }
 
     setLoading(true);
-    setError('');
+    setError("");
     setMfaRequired(false);
 
     try {
-      const response = await api.post('/auth/login', formData);
+      const response = await api.post("/auth/login", formData);
 
       if (response.data.mfaRequired) {
-        // Handle anomaly-triggered MFA
         setMfaRequired(true);
         setMfaType(response.data.mfaType);
-        setError('Security check required. Please verify with your authenticator.');
+        setError("Security check required. Please verify your identity.");
         return;
       }
 
-      // Successful login
       await login(response.data);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Login failed. Please try again.';
-      setError(errorMsg);
+      setError(err.response?.data?.error || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle MFA verification (for TOTP or WebAuthn)
+  // MFA verification
   const handleMfaSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      // For TOTP: assume token input
-      // For WebAuthn: browser handles, but here we can trigger
-      if (mfaType === 'webauthn') {
-        // WebAuthn flow: Get options, create/get credential, verify
-        const optionsRes = await api.post('/auth/mfa/setup', { type: 'webauthn' });
+      if (mfaType === "webauthn") {
+        const optionsRes = await api.post("/auth/mfa/setup", { type: "webauthn" });
         const options = optionsRes.data.options;
-        
-        // Use WebAuthn API (requires publicCredential or privateCredential polyfill if needed)
-        if ('credentials' in navigator) {
-          let credential;
-          if (optionsRes.data.mfaType === 'setup') { // During setup
-            credential = await navigator.credentials.create({ publicKey: options });
-          } else {
-            credential = await navigator.credentials.get({ publicKey: options });
-          }
-          const verifyRes = await api.post('/auth/mfa/verify', {
-            type: 'webauthn',
+
+        if ("credentials" in navigator) {
+          const credential = await navigator.credentials.get({ publicKey: options });
+          const verifyRes = await api.post("/auth/mfa/verify", {
+            type: "webauthn",
             response: credential,
-            userId: formData.email // Or from context
+            userId: formData.email,
           });
           await login(verifyRes.data);
-          navigate('/dashboard');
+          navigate("/dashboard");
         } else {
-          setError('WebAuthn not supported in this browser.');
+          setError("WebAuthn is not supported in this browser.");
         }
       } else {
-        // TOTP flow: Assume input field for token
         const token = e.target.token.value;
-        const verifyRes = await api.post('/auth/mfa/verify', {
+        const verifyRes = await api.post("/auth/mfa/verify", {
           token,
-          userId: formData.email, // Resolve to user ID via backend
-          type: 'totp'
+          userId: formData.email,
+          type: "totp",
         });
         await login(verifyRes.data);
-        navigate('/dashboard');
+        navigate("/dashboard");
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'MFA verification failed.');
+      setError(err.response?.data?.error || "Verification failed.");
     } finally {
       setLoading(false);
     }
   };
 
+  // MFA Verification Page
   if (mfaRequired) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Verify Identity
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              {mfaType === 'totp' ? 'Enter your authenticator code.' : 'Use your biometric to verify.'}
+      <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6">
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <svg
+                className="w-8 h-8 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 7v5l3 3" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">Two-Factor Verification</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {mfaType === "totp"
+                ? "Enter the 6-digit code from your authenticator app."
+                : "Use your security key or biometric verification."}
             </p>
           </div>
-          <form className="mt-8 space-y-6" onSubmit={handleMfaSubmit}>
-            {mfaType === 'totp' && (
-              <div>
-                <input
-                  type="text"
-                  name="token"
-                  required
-                  maxLength="6"
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter 6-digit code"
-                />
-              </div>
+
+          <form onSubmit={handleMfaSubmit} className="space-y-5">
+            {mfaType === "totp" && (
+              <input
+                type="text"
+                name="token"
+                required
+                maxLength="6"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className="w-full text-center text-2xl font-mono tracking-widest px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                placeholder="000000"
+                autoFocus
+              />
             )}
+
             {error && (
-              <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm text-center">
                 {error}
               </div>
             )}
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Verify'}
-              </button>
-            </div>
-            <div className="text-center">
-              <button
-                onClick={() => setMfaRequired(false)}
-                className="text-sm text-blue-600 hover:text-blue-500"
-              >
-                Back to Login
-              </button>
-            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                      opacity="0.3"
+                    />
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Verifying...
+                </>
+              ) : (
+                "Verify Identity"
+              )}
+            </button>
           </form>
+
+          <button
+            onClick={() => setMfaRequired(false)}
+            className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            ← Back to Login
+          </button>
         </div>
       </div>
     );
   }
 
+  // Normal Login Page
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-7">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            {/* Or{" "}
+            <Link
+              to="/register"
+              className="font-semibold text-blue-600 hover:text-blue-700 underline"
+            >
               create a new account
-            </Link>
+            </Link> */}
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="email" className="sr-only">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="sr-only">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-400"
+              placeholder="••••••••"
+            />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm text-center">
               {error}
             </div>
           )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {loading ? 'Signing In...' : 'Sign In'}
-            </button>
-          </div>
-
-          <div className="text-sm">
-            <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
-              Forgot your password?
-            </Link>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                    opacity="0.3"
+                  />
+                  <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Signing In...
+              </>
+            ) : (
+              "Sign In"
+            )}
+          </button>
         </form>
+
+        <div className="text-center">
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            Forgot your password?
+          </Link>
+        </div>
       </div>
     </div>
   );
