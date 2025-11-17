@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminLogs from './pages/AdminLogs';
 import Reports from './pages/Reports';
+import Profile from './pages/Profile';
 import './App.css';
 
 function AppContent() {
@@ -39,6 +40,7 @@ function AppContent() {
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/user/profile" element={<Profile />} />
         <Route path="/admin/dashboard" element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/dashboard" />} />
         <Route path="/admin/logs" element={user?.role === 'admin' ? <AdminLogs /> : <Navigate to="/dashboard" />} />
         <Route path="/admin/reports" element={user?.role === 'admin' ? <Reports /> : <Navigate to="/dashboard" />} />
