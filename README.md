@@ -1,6 +1,6 @@
 User Authentication System
 
-A secure, production-ready user authentication system with multi-factor authentication (MFA), anomaly detection, real-time admin dashboard, and reporting. Built with React + Vite (frontend) and Node.js + Express (backend), using MySQL for storage.
+A secure user authentication system with multi-factor authentication (MFA), anomaly detection, real-time admin dashboard, and reporting. Built with React + Vite (frontend) and Node.js + Express (backend), using MySQL for storage.
 
 
 Features
